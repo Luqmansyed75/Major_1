@@ -1,0 +1,26 @@
+[project]
+name = "major1"
+version = "0.1.0"
+description = "Enterprise Agentic RAG System with MCP and LangGraph"
+readme = "README.md"
+authors = [
+    { name = "Luqmansyed75", email = "luqmanlukku20@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "google-api-python-client>=2.100.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-auth-oauthlib>=1.0.0",
+    "langchain-core>=0.3.0",
+    "langchain-groq>=0.2.0",
+    "langgraph>=0.2.0",
+    "mcp[cli]>=1.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+major1 = "main:main"
+
+[build-system]
+requires = ["uv_build>=0.12.6,<0.13.0"]
+build-backend = "uv_build"
