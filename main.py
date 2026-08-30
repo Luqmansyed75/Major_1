@@ -1,9 +1,18 @@
+import asyncio
+import sys
 import uuid
 from langchain_core.messages import HumanMessage
 from agent.graph import graph
 
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
-def main():
+
+async def main():
     print("=" * 60)
     print("       Live Rag - Eval: Interactive Agent Assistant       ")
     print("=" * 60)
@@ -23,7 +32,7 @@ def main():
                 break
 
             print("\nAgent thinking...", flush=True)
-            result = graph.invoke(
+            result = await graph.ainvoke(
                 {"messages": [HumanMessage(content=user_input)]},
                 config=config,
             )
@@ -40,4 +49,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
+

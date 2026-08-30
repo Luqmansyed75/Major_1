@@ -1,5 +1,14 @@
+import asyncio
 import os
+import sys
 from dotenv import load_dotenv
+
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_groq import ChatGroq
 from langgraph.checkpoint.memory import MemorySaver
@@ -7,7 +16,7 @@ from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from agent.state import AgentState
-from client.mcp_client import GMAIL_TOOLS
+from client.mcp_client import ALL_TOOLS
 
 # ---------------------------------------------------------------------------
 # 1. Configuration & LLM Initialization
@@ -18,13 +27,16 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 SYSTEM_PROMPT = """You are an intelligent enterprise AI assistant for Live Rag - Eval.
-You have direct access to the user's Gmail via MCP tools (search_emails, read_email, list_unread_emails).
+You have direct access to enterprise tools via Model Context Protocol (MCP):
+- Gmail: search_emails, read_email, list_unread_emails
+- GitHub: search_repositories, list_issues, get_issue, list_pull_requests, get_file_content
 
 Guidelines:
-1. When asked about emails, messages, schedules, senders, or communication updates, USE the appropriate tool to retrieve facts before answering.
-2. If you need to read the full body of a message found during search, call `read_email` with its message_id.
-3. For general knowledge, greetings, or questions not involving emails, respond directly without calling tools.
-4. When answering with retrieved email data, clearly state the sender, subject, date, and key content.
+1. When asked about emails, messages, or communication updates, USE Gmail tools to retrieve real-time data.
+2. When asked about GitHub repositories, code, open issues, PRs, or file contents, USE GitHub tools to retrieve facts.
+3. If you need to read the full body of an email or issue, call `read_email` or `get_issue` with its identifier.
+4. For general knowledge, greetings, or questions not requiring external data, respond directly without calling tools.
+5. When answering with retrieved data, provide clear, well-structured summaries citing relevant IDs, senders/authors, and key context.
 """
 
 llm = ChatGroq(
@@ -33,17 +45,17 @@ llm = ChatGroq(
     temperature=0.1,
 )
 
-# Bind MCP tools to LLM
-llm_with_tools = llm.bind_tools(GMAIL_TOOLS)
+# Bind all MCP tools to LLM
+llm_with_tools = llm.bind_tools(ALL_TOOLS)
 
 
 # ---------------------------------------------------------------------------
-# 2. Define Graph Nodes
+# 2. Define Graph Nodes (async for MCP tool compatibility)
 # ---------------------------------------------------------------------------
-def agent_node(state: AgentState) -> dict:
+async def agent_node(state: AgentState) -> dict:
     """Agent decision node: analyzes query and either calls tools or responds."""
     messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
-    response = llm_with_tools.invoke(messages)
+    response = await llm_with_tools.ainvoke(messages)
     return {"messages": [response]}
 
 
@@ -54,7 +66,7 @@ workflow = StateGraph(AgentState)
 
 # Add nodes
 workflow.add_node("agent", agent_node)
-workflow.add_node("tools", ToolNode(GMAIL_TOOLS))
+workflow.add_node("tools", ToolNode(ALL_TOOLS))
 
 # Add edges
 workflow.add_edge(START, "agent")
@@ -70,25 +82,26 @@ graph = workflow.compile(checkpointer=memory)
 # 4. Interactive Test CLI
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    print("=" * 60)
-    print("  Live Rag - Eval: Agent connected to Gmail MCP Server")
-    print("=" * 60)
-    
-    config = {"configurable": {"thread_id": "test-session-1"}}
+    async def _test():
+        print("=" * 60)
+        print("  Live Rag - Eval: Agent connected to Gmail & GitHub MCP Servers")
+        print("=" * 60)
 
-    # Quick automated check
-    test_query = "Check my latest unread emails and summarize what they are about."
-    print(f"\n[User Query]: {test_query}\n")
-    print("Agent is thinking and querying MCP tools...\n")
+        config = {"configurable": {"thread_id": "test-session-1"}}
 
-    events = graph.stream(
-        {"messages": [HumanMessage(content=test_query)]},
-        config=config,
-        stream_mode="values"
-    )
+        test_query = "Search for repositories by Luqmansyed75"
+        print(f"\n[User Query]: {test_query}\n")
+        print("Agent is thinking and querying MCP tools...\n")
 
-    for event in events:
-        if "messages" in event and event["messages"]:
-            last_msg = event["messages"][-1]
-            if last_msg.type == "ai" and last_msg.content:
-                print(f"[Agent]:\n{last_msg.content}\n")
+        async for event in graph.astream(
+            {"messages": [HumanMessage(content=test_query)]},
+            config=config,
+            stream_mode="values",
+        ):
+            if "messages" in event and event["messages"]:
+                last_msg = event["messages"][-1]
+                if last_msg.type == "ai" and last_msg.content:
+                    print(f"[Agent]:\n{last_msg.content}\n")
+
+    asyncio.run(_test())
+
