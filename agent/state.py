@@ -7,3 +7,4 @@ from langgraph.graph.message import add_messages
 class AgentState(TypedDict):
     """State schema holding message history with the add_messages reducer."""
     messages: Annotated[list[BaseMessage], add_messages]
+    approval:None

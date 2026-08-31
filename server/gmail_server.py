@@ -14,10 +14,14 @@ load_dotenv()
 mcp = FastMCP("gmail-server")
 
 # OAuth Configuration
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.send",
+]
 CREDENTIALS_FILE = os.getenv("GMAIL_CREDENTIALS_PATH", "credentials.json")
 TOKEN_FILE = os.getenv("GMAIL_TOKEN_PATH", "token.json")
 USE_MOCK = os.getenv("USE_MOCK_GMAIL", "false").lower() in ("true", "1", "yes")
+
 
 # ---------------------------------------------------------------------------
 # Mock Data for Sandbox / Offline Testing
@@ -256,9 +260,58 @@ def list_unread_emails(max_results: int = 5) -> str:
     return search_emails(query="is:unread", max_results=max_results)
 
 
+@mcp.tool()
+def send_email(to: str, subject: str, body: str) -> str:
+    """Sends an email to a specified recipient via Gmail.
+
+    Args:
+        to: Email address of the recipient.
+        subject: Subject line of the email.
+        body: Plaintext body content of the email.
+
+    Returns:
+        JSON string confirming the sent email or an error message.
+    """
+    from email.mime.text import MIMEText
+
+    service = get_gmail_service()
+
+    # --- Live Gmail API Execution ---
+    if service is not None:
+        try:
+            message = MIMEText(body)
+            message["to"] = to
+            message["subject"] = subject
+            raw = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+            sent = service.users().messages().send(
+                userId="me", body={"raw": raw}
+            ).execute()
+            return json.dumps({
+                "source": "live_gmail",
+                "status": "sent",
+                "message_id": sent.get("id"),
+                "thread_id": sent.get("threadId"),
+                "to": to,
+                "subject": subject,
+            }, indent=2)
+        except Exception as e:
+            return json.dumps({"error": f"Failed to send email: {str(e)}"})
+
+    # --- Mock Sandbox Fallback ---
+    return json.dumps({
+        "source": "mock_sandbox",
+        "status": "sent (simulated)",
+        "note": "Email was not actually sent (mock mode active)",
+        "to": to,
+        "subject": subject,
+        "body": body,
+    }, indent=2)
+
+
 # ---------------------------------------------------------------------------
 # 4. Server Execution Entrypoint
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     # Runs the MCP server using standard I/O (stdio) transport
     mcp.run(transport="stdio")
+
