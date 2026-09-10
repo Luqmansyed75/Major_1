@@ -1,0 +1,131 @@
+2026-09-08 15:48:23 - INFO - Processing request of type CallToolRequest
+2026-09-08 15:48:23 - INFO - list_unread_emails | max_results=2
+2026-09-08 15:48:23 - INFO - search_emails | query='is:unread', max_results=2
+2026-09-08 15:48:24 - INFO - Processing request of type ListToolsRequest
+2026-09-10 12:32:32 - INFO - Processing request of type ListToolsRequest
+2026-09-10 12:32:32 - INFO - Processing request of type ListToolsRequest
+2026-09-10 12:32:46 - INFO - agent_node | entered
+2026-09-10 12:32:47 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 12:32:47 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 12:32:47 - INFO - agent_node | tool call: list_unread_emails -> routing to tools
+2026-09-10 12:32:47 - INFO - Processing request of type CallToolRequest
+2026-09-10 12:32:47 - INFO - list_unread_emails | max_results=5
+2026-09-10 12:32:47 - INFO - search_emails | query='is:unread', max_results=5
+2026-09-10 12:32:48 - INFO - Processing request of type ListToolsRequest
+2026-09-10 12:32:48 - INFO - pii_redaction_node | entered
+2026-09-10 12:32:48 - INFO - pii_redaction_node | PII redaction applied on tool message: list_unread_emails
+2026-09-10 12:32:48 - INFO - pii_redaction_node | routing to agent
+2026-09-10 12:32:48 - INFO - agent_node | entered
+2026-09-10 12:32:50 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 12:32:50 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 12:32:50 - INFO - agent_node | no tool calls detected -> routing to END
+2026-09-10 12:35:45 - INFO - agent_node | entered
+2026-09-10 12:35:46 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 12:35:46 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 12:35:46 - INFO - agent_node | tool call: list_commits -> routing to tools
+2026-09-10 12:35:47 - INFO - Processing request of type CallToolRequest
+2026-09-10 12:35:47 - INFO - list_commits | owner='Luqmansyed', repo='Major_1', max_results=5
+2026-09-10 12:35:47 - INFO - HTTP Request: GET https://api.github.com/repos/Luqmansyed/Major_1/commits?per_page=5 "HTTP/1.1 404 Not Found"
+2026-09-10 12:35:47 - INFO - pii_redaction_node | entered
+2026-09-10 12:35:47 - INFO - pii_redaction_node | PII redaction applied on tool message: list_commits
+2026-09-10 12:35:47 - INFO - pii_redaction_node | routing to agent
+2026-09-10 12:35:47 - INFO - agent_node | entered
+2026-09-10 12:35:49 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 12:35:49 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 12:35:49 - INFO - agent_node | tool call: search_repositories -> routing to tools
+2026-09-10 12:35:49 - INFO - Processing request of type CallToolRequest
+2026-09-10 12:35:49 - INFO - search_repositories | query='Luqmansyed Major_1', max_results=5
+2026-09-10 12:35:50 - INFO - HTTP Request: GET https://api.github.com/search/repositories?q=Luqmansyed+Major_1&per_page=5 "HTTP/1.1 200 OK"
+2026-09-10 12:35:50 - INFO - Processing request of type ListToolsRequest
+2026-09-10 12:35:50 - INFO - pii_redaction_node | entered
+2026-09-10 12:35:50 - INFO - pii_redaction_node | PII redaction applied on tool message: search_repositories
+2026-09-10 12:35:50 - INFO - pii_redaction_node | routing to agent
+2026-09-10 12:35:50 - INFO - agent_node | entered
+2026-09-10 12:35:51 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 12:35:51 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 12:35:51 - INFO - agent_node | no tool calls detected -> routing to END
+2026-09-10 12:36:07 - INFO - agent_node | entered
+2026-09-10 12:36:09 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 12:36:09 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 12:36:09 - INFO - agent_node | tool call: list_commits -> routing to tools
+2026-09-10 12:36:10 - INFO - Processing request of type CallToolRequest
+2026-09-10 12:36:10 - INFO - list_commits | owner='Luqmansyed75', repo='Major_1', max_results=5
+2026-09-10 12:36:11 - INFO - HTTP Request: GET https://api.github.com/repos/Luqmansyed75/Major_1/commits?per_page=5 "HTTP/1.1 200 OK"
+2026-09-10 12:36:11 - INFO - Processing request of type ListToolsRequest
+2026-09-10 12:36:11 - INFO - pii_redaction_node | entered
+2026-09-10 12:36:11 - INFO - pii_redaction_node | PII redaction applied on tool message: list_commits
+2026-09-10 12:36:11 - INFO - pii_redaction_node | routing to agent
+2026-09-10 12:36:11 - INFO - agent_node | entered
+2026-09-10 12:36:11 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2026-09-10 12:36:11 - INFO - Retrying request to /openai/v1/chat/completions in 12.000000 seconds
+2026-09-10 12:36:24 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2026-09-10 12:36:24 - INFO - Retrying request to /openai/v1/chat/completions in 2.000000 seconds
+2026-09-10 12:36:27 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 12:36:27 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 12:36:27 - INFO - agent_node | no tool calls detected -> routing to END
+2026-09-10 12:40:29 - INFO - Processing request of type ListToolsRequest
+2026-09-10 12:40:29 - INFO - Processing request of type ListToolsRequest
+2026-09-10 12:40:37 - INFO - agent_node | entered
+2026-09-10 12:40:38 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 12:40:38 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 12:40:38 - INFO - agent_node | tool call: list_unread_emails -> routing to tools
+2026-09-10 12:40:38 - INFO - Processing request of type CallToolRequest
+2026-09-10 12:40:38 - INFO - list_unread_emails | max_results=5
+2026-09-10 12:40:38 - INFO - search_emails | query='is:unread', max_results=5
+2026-09-10 12:40:39 - INFO - Processing request of type ListToolsRequest
+2026-09-10 12:40:39 - INFO - pii_redaction_node | entered
+2026-09-10 12:40:39 - INFO - pii_redaction_node | PII redaction applied on tool message: list_unread_emails
+2026-09-10 12:40:39 - INFO - pii_redaction_node | routing to agent
+2026-09-10 12:40:39 - INFO - agent_node | entered
+2026-09-10 12:40:40 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 12:40:40 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 12:40:40 - INFO - agent_node | no tool calls detected -> routing to END
+2026-09-10 13:05:09 - INFO - Processing request of type ListToolsRequest
+2026-09-10 13:05:09 - INFO - Processing request of type ListToolsRequest
+2026-09-10 13:05:24 - INFO - agent_node | entered
+2026-09-10 13:05:24 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 13:05:24 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 13:05:24 - INFO - agent_node | tool call: list_unread_emails -> routing to tools
+2026-09-10 13:05:25 - INFO - Processing request of type CallToolRequest
+2026-09-10 13:05:25 - INFO - list_unread_emails | max_results=2
+2026-09-10 13:05:25 - INFO - search_emails | query='is:unread', max_results=2
+2026-09-10 13:05:25 - INFO - file_cache is only supported with oauth2client<4.0.0
+2026-09-10 13:05:27 - INFO - Processing request of type ListToolsRequest
+2026-09-10 13:05:27 - INFO - pii_redaction_node | entered
+2026-09-10 13:05:27 - INFO - pii_redaction_node | PII redaction applied on tool message: list_unread_emails
+2026-09-10 13:05:27 - INFO - pii_redaction_node | routing to agent
+2026-09-10 13:05:27 - INFO - agent_node | entered
+2026-09-10 13:05:28 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 13:05:28 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 13:05:28 - INFO - agent_node | no tool calls detected -> routing to END
+2026-09-10 14:19:15 - INFO - agent_node | entered
+2026-09-10 14:19:16 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 14:19:16 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 14:19:16 - INFO - agent_node | tool call: list_commits -> routing to tools
+2026-09-10 14:19:17 - INFO - Processing request of type CallToolRequest
+2026-09-10 14:19:17 - INFO - list_commits | owner='Luqmansyed75', repo='Major_1', max_results=5
+2026-09-10 14:19:17 - INFO - HTTP Request: GET https://api.github.com/repos/Luqmansyed75/Major_1/commits?per_page=5 "HTTP/1.1 200 OK"
+2026-09-10 14:19:17 - INFO - Processing request of type ListToolsRequest
+2026-09-10 14:19:17 - INFO - pii_redaction_node | entered
+2026-09-10 14:19:17 - INFO - pii_redaction_node | PII redaction applied on tool message: list_commits
+2026-09-10 14:19:17 - INFO - pii_redaction_node | routing to agent
+2026-09-10 14:19:17 - INFO - agent_node | entered
+2026-09-10 14:19:19 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 14:19:19 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 14:19:19 - INFO - agent_node | high-risk tool detected: send_email -> routing to hitl_review
+2026-09-10 14:19:19 - INFO - hitl_review_node | entered
+2026-09-10 14:19:19 - INFO - hitl_review_node | awaiting human approval for tool: send_email
+2026-09-10 14:19:48 - INFO - hitl_review_node | entered
+2026-09-10 14:19:48 - INFO - hitl_review_node | awaiting human approval for tool: send_email
+2026-09-10 14:19:48 - INFO - hitl_review_node | tool 'send_email' APPROVED -> routing to tools
+2026-09-10 14:19:48 - INFO - Processing request of type CallToolRequest
+2026-09-10 14:19:48 - INFO - send_email | to='thonetiteja@gmail.com', subject='Recent commit ID for Luqmansyed75/Major_1'
+2026-09-10 14:19:49 - INFO - file_cache is only supported with oauth2client<4.0.0
+2026-09-10 14:19:50 - INFO - Processing request of type ListToolsRequest
+2026-09-10 14:19:50 - INFO - pii_redaction_node | entered
+2026-09-10 14:19:50 - INFO - pii_redaction_node | PII redaction applied on tool message: send_email
+2026-09-10 14:19:50 - INFO - pii_redaction_node | routing to agent
+2026-09-10 14:19:50 - INFO - agent_node | entered
+2026-09-10 14:19:51 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-10 14:19:51 - INFO - agent_node | llm_with_tools.ainvoke completed
+2026-09-10 14:19:51 - INFO - agent_node | no tool calls detected -> routing to END

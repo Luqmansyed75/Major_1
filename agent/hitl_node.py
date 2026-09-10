@@ -1,6 +1,7 @@
 from langchain_core.messages import ToolMessage
 from langgraph.types import Command, interrupt
 from agent.state import AgentState
+from config.logger_config import logger
 
 
 # ---------------------------------------------------------------------------
@@ -8,8 +9,10 @@ from agent.state import AgentState
 # ---------------------------------------------------------------------------
 async def hitl_review_node(state: AgentState) -> Command:
     """HITL node: pauses for approval, then routes to 'tools' or back to 'agent'."""
+    logger.info("hitl_review_node | entered")
     last_message = state["messages"][-1]
     tool_call = last_message.tool_calls[0]
+    logger.info(f"hitl_review_node | awaiting human approval for tool: {tool_call['name']}")
 
     # Freeze graph for human decision
     user_decision = interrupt({
@@ -19,6 +22,7 @@ async def hitl_review_node(state: AgentState) -> Command:
 
     # If REJECTED -> Inject ToolMessage and route back to 'agent'
     if str(user_decision).lower() not in ("yes", "approve", "y"):
+        logger.info(f"hitl_review_node | tool '{tool_call['name']}' REJECTED -> routing to agent")
         rejection_msg = ToolMessage(
             tool_call_id=tool_call["id"],
             name=tool_call["name"],
@@ -30,4 +34,5 @@ async def hitl_review_node(state: AgentState) -> Command:
         )
 
     # If APPROVED -> Route directly to 'tools' to execute
+    logger.info(f"hitl_review_node | tool '{tool_call['name']}' APPROVED -> routing to tools")
     return Command(goto="tools")

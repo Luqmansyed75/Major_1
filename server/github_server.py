@@ -5,6 +5,7 @@ import os
 import httpx
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from config.logger_config import logger
 
 load_dotenv()
 
@@ -33,6 +34,7 @@ def search_repositories(query: str, max_results: int = 5) -> str:
         query: Search query (e.g. 'langchain', 'user:Luqmansyed75', 'topic:mcp').
         max_results: Maximum repositories to return (default: 5).
     """
+    logger.info(f"search_repositories | query='{query}', max_results={max_results}")
     res = httpx.get(
         f"{API}/search/repositories",
         headers=HEADERS,
@@ -64,6 +66,7 @@ def get_repository(owner: str, repo: str) -> str:
         owner: Repository owner or organization (e.g. 'Luqmansyed75').
         repo: Repository name (e.g. 'Major_1').
     """
+    logger.info(f"get_repository | owner='{owner}', repo='{repo}'")
     res = httpx.get(f"{API}/repos/{owner}/{repo}", headers=HEADERS, timeout=10.0)
     res.raise_for_status()
     r = res.json()
@@ -96,6 +99,7 @@ def list_issues(owner: str, repo: str, state: str = "open", max_results: int = 5
         state: Filter by state — 'open', 'closed', or 'all' (default: 'open').
         max_results: Maximum issues to return (default: 5).
     """
+    logger.info(f"list_issues | owner='{owner}', repo='{repo}', state='{state}', max_results={max_results}")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/issues",
         headers=HEADERS,
@@ -132,6 +136,7 @@ def get_issue(owner: str, repo: str, issue_number: int) -> str:
         repo: Repository name.
         issue_number: The issue number.
     """
+    logger.info(f"get_issue | owner='{owner}', repo='{repo}', issue_number={issue_number}")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/issues/{issue_number}",
         headers=HEADERS,
@@ -166,6 +171,7 @@ def list_pull_requests(owner: str, repo: str, state: str = "open", max_results: 
         state: Filter by state — 'open', 'closed', or 'all' (default: 'open').
         max_results: Maximum pull requests to return (default: 5).
     """
+    logger.info(f"list_pull_requests | owner='{owner}', repo='{repo}', state='{state}', max_results={max_results}")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/pulls",
         headers=HEADERS,
@@ -203,6 +209,7 @@ def get_file_content(owner: str, repo: str, path: str, ref: str = "main") -> str
         path: File path inside the repository (e.g. 'README.md').
         ref: Branch, tag, or commit SHA (default: 'main').
     """
+    logger.info(f"get_file_content | owner='{owner}', repo='{repo}', path='{path}', ref='{ref}'")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/contents/{path}",
         headers=HEADERS,
@@ -235,6 +242,7 @@ def list_commits(owner: str, repo: str, max_results: int = 5) -> str:
         repo: Repository name.
         max_results: Maximum commits to return (default: 5).
     """
+    logger.info(f"list_commits | owner='{owner}', repo='{repo}', max_results={max_results}")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/commits",
         headers=HEADERS,
