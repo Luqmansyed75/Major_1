@@ -11,27 +11,28 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
         pass
 
 from agent.state import AgentState
-from client.mcp_client import ALL_TOOLS
 from agent.agent_node import agent_node
 from agent.hitl_node import hitl_review_node
 from agent.pii_node import pii_redaction_node
 
-# ---------------------------------------------------------------------------
-# Graph Definition & Flow Wiring
-# ---------------------------------------------------------------------------
-workflow = StateGraph(AgentState)
+# graph is None until build_graph() is called (by main.py or FastAPI lifespan)
+graph = None
 
-# Add nodes
-workflow.add_node("agent", agent_node)
-workflow.add_node("tools", ToolNode(ALL_TOOLS))
-workflow.add_node("hitl_review", hitl_review_node)
-workflow.add_node("pii_redaction", pii_redaction_node)
 
-# Flow Wiring
-workflow.add_edge(START, "agent")
-workflow.add_edge("tools", "pii_redaction")  # tools -> pii_redaction -> agent
-# (agent and hitl_review route dynamically via Command(goto=...) internally)
+def build_graph(tools: list):
+    """Build and compile the LangGraph graph with the given MCP tools."""
+    global graph
 
-# Compile with checkpointer (mandatory for interrupt / HITL support)
-memory = MemorySaver()
-graph = workflow.compile(checkpointer=memory)
+    workflow = StateGraph(AgentState)
+
+    workflow.add_node("agent", agent_node)
+    workflow.add_node("tools", ToolNode(tools))
+    workflow.add_node("hitl_review", hitl_review_node)
+    workflow.add_node("pii_redaction", pii_redaction_node)
+
+    workflow.add_edge(START, "agent")
+    workflow.add_edge("tools", "pii_redaction")
+
+    memory = MemorySaver()
+    graph = workflow.compile(checkpointer=memory)
+    return graph

@@ -51,8 +51,6 @@ llm = ChatGroq(
     temperature=0.1,
 )
 
-llm_with_tools = llm.bind_tools(ALL_TOOLS)
-
 
 # ---------------------------------------------------------------------------
 # 2. Agent Node Implementation
@@ -60,6 +58,11 @@ llm_with_tools = llm.bind_tools(ALL_TOOLS)
 async def agent_node(state: AgentState) -> Command:
     """Agent analyzes query and routes directly using Command(goto=...)."""
     logger.info("agent_node | entered")
+
+    # Bind tools lazily — ALL_TOOLS is [] at import time, populated by lifespan
+    from client import ALL_TOOLS as live_tools
+    llm_with_tools = llm.bind_tools(live_tools)
+
     messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
     response = await llm_with_tools.ainvoke(messages)
     logger.info("agent_node | llm_with_tools.ainvoke completed")

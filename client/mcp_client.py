@@ -4,9 +4,6 @@ import sys
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 
-# ---------------------------------------------------------------------------
-# MCP Server Registry
-# ---------------------------------------------------------------------------
 MCP_SERVERS = {
     "gmail": {
         "transport": "stdio",
@@ -21,13 +18,17 @@ MCP_SERVERS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Tool Discovery
-# ---------------------------------------------------------------------------
-def load_all_tools():
-    """Discovers and returns LangChain tools from all registered MCP servers."""
+async def load_all_tools_async():
+    """Async version - safe to call from a running event loop (e.g. FastAPI lifespan)."""
     client = MultiServerMCPClient(MCP_SERVERS)
-    return asyncio.run(client.get_tools())
+    return await client.get_tools()
 
 
-ALL_TOOLS = load_all_tools()
+# def load_all_tools():
+#     """Sync version - only safe to call before any event loop is running (e.g. main.py)."""
+#     client = MultiServerMCPClient(MCP_SERVERS)
+#     return asyncio.run(client.get_tools())
+
+
+# Populated at startup by FastAPI lifespan (or directly by main.py via load_all_tools)
+ALL_TOOLS: list = []

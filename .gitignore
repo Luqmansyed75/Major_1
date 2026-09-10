@@ -25,3 +25,5 @@ htmlcov/
 
 __pycache__/
 *.pyc
+
+logs/
