@@ -6,7 +6,6 @@ from langgraph.graph import END
 from langgraph.types import Command
 
 from agent.state import AgentState
-from client import ALL_TOOLS
 from config.logger_config import logger
 
 # ---------------------------------------------------------------------------

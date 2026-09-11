@@ -38,12 +38,14 @@ async def _resolve(graph, result, config: dict, thread_id: str) -> ChatResponse:
 
 
 # ---------------------------------------------------------------------------
-# POST /ask - user sends a question
+# POST /ask - user sends a question with persistent session thread_id
 # ---------------------------------------------------------------------------
 @router.post("/ask", response_model=ChatResponse)
 async def chat_endpoint(request: Request, payload: ChatRequest):
-    graph = request.app.state.graph          # safely fetched from app.state
-    thread_id = str(uuid.uuid4())
+    graph = request.app.state.graph
+    
+    # Use client-provided thread_id for conversation memory (fallback to new UUID)
+    thread_id = payload.thread_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
     result = await graph.ainvoke(
@@ -59,7 +61,7 @@ async def chat_endpoint(request: Request, payload: ChatRequest):
 # ---------------------------------------------------------------------------
 @router.post("/resume", response_model=ChatResponse)
 async def resume_endpoint(request: Request, payload: ResumeRequest):
-    graph = request.app.state.graph          # safely fetched from app.state
+    graph = request.app.state.graph
     config = {"configurable": {"thread_id": payload.thread_id}}
 
     result = await graph.ainvoke(
