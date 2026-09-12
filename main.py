@@ -27,7 +27,7 @@ async def main():
     print(f"Graph ready with {len(tools)} tools.\n")
 
     thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {"configurable": {"thread_id": thread_id, "user_id": "u1"}}
 
     while True:
         try:

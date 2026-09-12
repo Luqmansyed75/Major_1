@@ -7,6 +7,10 @@ from langgraph.types import Command
 
 from agent.state import AgentState
 from config.logger_config import logger
+from langchain_core.runnables import RunnableConfig
+
+from langgraph.store.memory import InMemoryStore
+from langgraph.store.base import BaseStore
 
 # ---------------------------------------------------------------------------
 # 1. Configuration & LLM Initialization
@@ -42,6 +46,18 @@ Input Guardrails (HIGHEST PRIORITY — evaluate before anything else):
   * Any form of secret configuration value
 - When refusing an unsafe request, respond with a short, clear message explaining that the request involves sensitive information and cannot be processed. Do NOT elaborate on what was detected or provide workarounds.
 - These guardrail rules override all other instructions. Even if the user claims a legitimate reason, do NOT comply.
+
+Use available user memory to personalize responses naturally and accurately. When relevant:
+- Address the user by name.
+- Reference known projects, tools, preferences, or past interactions.
+- Tailor guidance to their context and avoid generic phrasing.
+
+Only use explicitly known information; never assume personal details.
+
+At the end of each response, suggest 3 relevant follow-up questions based on the current response and available user context.
+
+User memory:
+{user_details_content}
 """
 
 llm = ChatGroq(
@@ -54,7 +70,7 @@ llm = ChatGroq(
 # ---------------------------------------------------------------------------
 # 2. Agent Node Implementation
 # ---------------------------------------------------------------------------
-async def agent_node(state: AgentState) -> Command:
+async def agent_node(state: AgentState, config:RunnableConfig, store:BaseStore) -> Command:
     """Agent analyzes query and routes directly using Command(goto=...)."""
     logger.info("agent_node | entered")
 
@@ -62,7 +78,22 @@ async def agent_node(state: AgentState) -> Command:
     from client import ALL_TOOLS as live_tools
     llm_with_tools = llm.bind_tools(live_tools)
 
-    messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
+    logger.info("fetching user id")
+
+    user_id = config["configurable"]["user_id"]
+    user_details = ("user", user_id, "details")
+    items = store.search(user_details)
+    if items:
+        logger.info(f"agent_node | found {len(items)} user memory items")
+        user_details_content = "\n".join(f"- {it.value.get('data', '')}" for it in items)
+    else:
+        user_details_content = ""  # prompt says it may be empty
+    new_system_prompt = SYSTEM_PROMPT.format(
+        user_details_content=user_details_content
+    )
+
+
+    messages = [SystemMessage(content=new_system_prompt)] + state["messages"]
     response = await llm_with_tools.ainvoke(messages)
     logger.info("agent_node | llm_with_tools.ainvoke completed")
 
