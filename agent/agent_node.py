@@ -9,7 +9,6 @@ from agent.state import AgentState
 from config.logger_config import logger
 from langchain_core.runnables import RunnableConfig
 
-from langgraph.store.memory import InMemoryStore
 from langgraph.store.base import BaseStore
 
 # ---------------------------------------------------------------------------

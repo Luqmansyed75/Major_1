@@ -11,9 +11,9 @@ from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import StateGraph, START, END, MessagesState
-from langgraph.store.memory import InMemoryStore
 from langgraph.store.base import BaseStore
 from langgraph.types import Command
+from config.logger_config import logger
 #----------------------------------------------------------------------------
 MEMORY_PROMPT = """You are responsible for updating and maintaining accurate user memory.
 
@@ -30,16 +30,20 @@ TASK:
 - If there is nothing memory-worthy, return an empty list.
 """
 #-------------------------------------------------------------------
-memory_llm=ChatGroq(model="openai/gpt-oss-120b", temparature=0)
+memory_llm=ChatGroq(model="openai/gpt-oss-120b", temperature=0)
 #----------------------------------------------------------------
+class MemoryItem(BaseModel):
+    text: str = Field(description="Atomic user memory")
+    is_new: bool = Field(description="True if new, false if duplicate")
 class MemoryDecision(BaseModel):
     should_write: bool
-    memories: List[str] = Field(default_factory=list, description="Atomic user memories to store")
+    memories: List[MemoryItem] = Field(default_factory=list, description="Atomic user memories to store")
 
 memory_extractor = memory_llm.with_structured_output(MemoryDecision)
 
 
 def chat_creates_memory_node(state: MessagesState, config: RunnableConfig, store: BaseStore):
+    logger.info("remember_node | entered")
 
     user_id = config["configurable"]["user_id"]
 
@@ -52,6 +56,7 @@ def chat_creates_memory_node(state: MessagesState, config: RunnableConfig, store
 
     # B) Latest user message
     last_text = state["messages"][-1]
+    
 
     # C) LLM extracts memories + marks new vs duplicate
     decision: MemoryDecision = memory_extractor.invoke(
@@ -64,7 +69,9 @@ def chat_creates_memory_node(state: MessagesState, config: RunnableConfig, store
     # D) Store ONLY new memories
     if decision.should_write:
         for mem in decision.memories:
-                store.put(namespace, str(uuid.uuid4()), {"data": mem.text})
+                if mem.is_new:
+                    store.put(namespace, str(uuid.uuid4()), {"data": mem.text})
+                    logger.info(f"Stored new memory for user {user_id}: {mem.text}")
 
     return Command(
             goto="agent"
