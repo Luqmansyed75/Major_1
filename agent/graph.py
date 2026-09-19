@@ -1,5 +1,4 @@
 import sys
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import ToolNode
 
@@ -16,16 +15,14 @@ from agent.hitl_node import hitl_review_node
 from agent.pii_node import pii_redaction_node
 from agent.remember_node import chat_creates_memory_node
 
-# Correct import — NOT langgraph.store.memory
-from langgraph.store.postgres import PostgresStore
 
-DB_URI = "postgresql://postgres:postgres@localhost:5442/postgres?sslmode=disable"
+
 
 # graph is None until build_graph() is called (by main.py or FastAPI lifespan)
 graph = None
 
 
-def build_graph(tools: list, store):
+def build_graph(tools: list, store, checkpointer) -> StateGraph:
     """Build and compile the LangGraph graph with the given MCP tools.
 
     Accepts an already-open PostgresStore so the connection remains alive
@@ -45,9 +42,8 @@ def build_graph(tools: list, store):
     workflow.add_edge(START,   "remember")
     workflow.add_edge("tools", "pii_redaction")
 
-    # Short-term memory (thread-level checkpointing) stays in-memory.
+    # Short-term memory postgres checkpointer
     # Long-term memory is handled by the PostgresStore passed in.
-    memory = MemorySaver()
 
-    graph = workflow.compile(checkpointer=memory, store=store)
+    graph = workflow.compile(checkpointer=checkpointer, store=store)
     return graph

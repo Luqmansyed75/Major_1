@@ -81,7 +81,7 @@ async def agent_node(state: AgentState, config:RunnableConfig, store:BaseStore) 
 
     user_id = config["configurable"]["user_id"]
     user_details = ("user", user_id, "details")
-    items = store.search(user_details)
+    items = await store.asearch(user_details)
     if items:
         logger.info(f"agent_node | found {len(items)} user memory items")
         user_details_content = "\n".join(f"- {it.value.get('data', '')}" for it in items)

@@ -1,8 +1,13 @@
+from dotenv import load_dotenv
+load_dotenv()  # Must be first — loads LANGSMITH_* vars before LangChain initializes tracing
+
 import asyncio
 import sys
 import uuid
+
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
+from config.logger_config import logger
 
 if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -12,104 +17,184 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
         pass
 
 
+DB_URI = "postgresql://postgres:postgres@localhost:5442/postgres?sslmode=disable"
+
+
 async def main():
     print("=" * 60)
     print("  Live Rag - Eval: Interactive Agent Assistant (with HITL)")
     print("=" * 60)
     print("Type your question below (or type 'exit' / 'q' to quit).\n")
 
-    # Load tools and build graph (sync is fine here - no running loop yet)
+    # Load tools and graph builder
     from client.mcp_client import load_all_tools_async
-    from agent.graph import build_graph, DB_URI
-    from langgraph.store.postgres import PostgresStore
+    from agent.graph import build_graph
+
+    # PostgreSQL integrations (async versions required for ainvoke/astream)
+    from langgraph.store.postgres.aio import AsyncPostgresStore
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
     print("Loading MCP tools...")
     tools = await load_all_tools_async()
 
-    # Open the Postgres store HERE and keep it alive for the entire session.
-    # The `with` block only exits when the user quits — so the connection
-    # is never closed while the graph is processing messages.
-    with PostgresStore.from_conn_string(DB_URI) as store:
-        # Create schema tables (idempotent — safe to call every time).
-        store.setup()
+    # ---------------------------------------------------------
+    # AsyncPostgresStore + AsyncPostgresSaver
+    # ---------------------------------------------------------
+    #
+    # AsyncPostgresStore:
+    #   Used for long-term memory / application data.
+    #
+    # AsyncPostgresSaver:
+    #   Used for LangGraph checkpoints / thread state.
+    #
+    # Async versions are required because graph.ainvoke() calls
+    # async checkpoint methods (aget_tuple, aput, etc.).
+    # Both connections are kept alive for the entire session.
+    # ---------------------------------------------------------
 
-        user_details = ("user", "u1", "details")
-        print("\nUser details for u1:")
-        for detail in store.search(user_details):
-            print(detail.value.get("data", detail.value))
-        
+    async with AsyncPostgresStore.from_conn_string(DB_URI) as store:
+        async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
 
-        # # Seed initial user data.
-        # user_id = "u1"
-        # user_details = ("user", user_id, "details")
-        # store.put(user_details, "profile_1", {"data": "Name: Nitish"})
-        # store.put(user_details, "profile_2", {"data": "Age: 30"})
-        # from langgraph.store.postgres import PostgresStore
+            # Create required PostgreSQL tables
+            await store.setup()
+            await checkpointer.setup()
 
-        # DB_URI = "postgresql://postgres:postgres@localhost:5442/postgres?sslmode=disable"
+            # -------------------------------------------------
+            # Build and COMPILE the graph
+            # -------------------------------------------------
+            #
+            # IMPORTANT:
+            # The checkpointer must be passed into build_graph
+            # BEFORE the graph is compiled.
+            # -------------------------------------------------
 
-        # with PostgresStore.from_conn_string(DB_URI) as store:
-        #     store.setup()
+            graph = build_graph(
+                tools=tools,
+                store=store,
+                checkpointer=checkpointer,
+            )
 
-        #     graph = build_graph(tools, store)
-        #     print(f"Graph ready with {len(tools)} tools.\n")
+            print(f"Graph ready with {len(tools)} tools.\n")
 
-        #     thread_id = str(uuid.uuid4())
-        #     config = {"configurable": {"thread_id": thread_id, "user_id": "u1"}}
+            # # Each conversation gets its own thread
+            # thread_id = str(uuid.uuid4())
 
-        #     while True:
-        #         try:
-        #             user_input = input("\nYou: ").strip()
-        #             if not user_input:
-        #                 continue
-        #             if user_input.lower() in ("exit", "quit", "q"):
-        #                 print("Goodbye!")
-        #                 break
+            config = {
+                "configurable": {
+                    "thread_id": "thread_id_2",
+                    "user_id": "u2",
+                },
+                "run_name": "live-rag-eval-agent",  # Trace name shown in LangSmith UI
+                "metadata": {                        # Visible as key-value in LangSmith
+                    "project": "Live_rag_eval",
+                    "env": "development",
+                },
+            }
 
-        #             print("\nAgent thinking...", flush=True)
+            # -------------------------------------------------
+            # Interactive conversation loop
+            # -------------------------------------------------
 
-        #             result = await graph.ainvoke(
-        #                 {"messages": [HumanMessage(content=user_input)]},
-        #                 config=config,
-        #             )
+            while True:
+                try:
+                    user_input = input("\nYou: ").strip()
 
-        #             while True:
-        #                 state = await graph.aget_state(config)
+                    if not user_input:
+                        continue
 
-        #                 if not state.tasks or not any(task.interrupts for task in state.tasks):
-        #                     break
+                    if user_input.lower() in ("exit", "quit", "q"):
+                        print("Goodbye!")
+                        break
 
-        #                 for task in state.tasks:
-        #                     for intr in task.interrupts:
-        #                         data = intr.value
-        #                         tool_name = data.get("tool_name", "unknown")
-        #                         args = data.get("args", {})
+                    print("\nAgent thinking...", flush=True)
 
-        #                         print("\n" + "=" * 60)
-        #                         print(f"  [HITL REVIEW] High-risk action: '{tool_name}'")
-        #                         print("=" * 60)
-        #                         for key, value in args.items():
-        #                             print(f"  {key}: {value}")
-        #                         print("-" * 60)
+                    result = await graph.ainvoke(
+                        {
+                            "messages": [
+                                HumanMessage(content=user_input)
+                            ]
+                        },
+                        config=config,
+                    )
 
-        #                         decision = input("  Approve this action? (yes/no): ").strip()
+                    # -------------------------------------------------
+                    # HITL handling
+                    # -------------------------------------------------
 
-        #                 result = await graph.ainvoke(
-        #                     Command(resume=decision),
-        #                     config=config,
-        #                 )
+                    while True:
 
-        #             final_msg = result["messages"][-1]
-        #             if hasattr(final_msg, "content") and final_msg.content:
-        #                 print(f"\nAssistant:\n{final_msg.content}\n")
-        #             print("-" * 60)
+                        # Because the graph has a checkpointer,
+                        # this state can be recovered using thread_id.
+                        state = await graph.aget_state(config)
 
-        #         except KeyboardInterrupt:
-        #             print("\nSession interrupted. Goodbye!")
-        #             break
-        #         except Exception as e:
-        #             print(f"\nError: {e}\n")
+                        # No pending interrupts
+                        if not state.tasks or not any(
+                            task.interrupts for task in state.tasks
+                        ):
+                            break
+
+                        for task in state.tasks:
+                            for intr in task.interrupts:
+
+                                data = intr.value
+
+                                tool_name = data.get(
+                                    "tool_name",
+                                    "unknown",
+                                )
+
+                                args = data.get(
+                                    "args",
+                                    {},
+                                )
+
+                                print("\n" + "=" * 60)
+                                print(
+                                    f"  [HITL REVIEW] "
+                                    f"High-risk action: '{tool_name}'"
+                                )
+                                print("=" * 60)
+
+                                for key, value in args.items():
+                                    print(f"  {key}: {value}")
+
+                                print("-" * 60)
+
+                                decision = input(
+                                    "  Approve this action? (yes/no): "
+                                ).strip()
+
+                                # Resume the interrupted graph
+                                result = await graph.ainvoke(
+                                    Command(resume=decision),
+                                    config=config,
+                                )
+
+                    # -------------------------------------------------
+                    # Print final response
+                    # -------------------------------------------------
+
+                    final_msg = result["messages"][-1]
+
+                    if hasattr(final_msg, "content") and final_msg.content:
+                        print(
+                            f"\nAssistant:\n"
+                            f"{final_msg.content}\n"
+                        )
+
+                    print("-" * 60)
+
+                except KeyboardInterrupt:
+                    print("\nSession interrupted. Goodbye!")
+                    break
+
+                except Exception as e:
+                    logger.error(f"Error during conversation: {repr(e)}", exc_info=True)
+                    print(f"\nError: {repr(e)}\n")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import selectors
+    # psycopg async requires SelectorEventLoop on Windows
+    # (default ProactorEventLoop is incompatible)
+    asyncio.run(main(), loop_factory=lambda: asyncio.SelectorEventLoop(selectors.SelectSelector()))
