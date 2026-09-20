@@ -1,8 +1,20 @@
-import os
-import requests
-from typing import Dict, Any, Optional, List
+from dotenv import load_dotenv
+load_dotenv()
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
+# Try environment variable first, then Streamlit Cloud secrets
+API_BASE_URL = os.getenv("API_BASE_URL")
+if not API_BASE_URL:
+    try:
+        import streamlit as st
+        API_BASE_URL = st.secrets.get("API_BASE_URL")
+    except Exception:
+        pass
+if not API_BASE_URL:
+    API_BASE_URL = "http://127.0.0.1:8000"
+
+# Strip any trailing slash so f"{API_BASE_URL}/path" doesn't produce double slashes
+API_BASE_URL = API_BASE_URL.rstrip("/")
+
 
 
 # ---------------------------------------------------------------------------
