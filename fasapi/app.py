@@ -21,8 +21,9 @@ import client.mcp_client as mcp_client
 from agent.graph import build_graph
 
 # DB pool + table init
-from fasapi.db.connection import init_pool, close_pool, DB_URI
+from fasapi.db.connection import init_pool, close_pool
 from fasapi.db.init_tables import init_tables
+
 
 # Routers
 from fasapi.routes.chat_route import router as chat_router
@@ -58,8 +59,12 @@ async def lifespan(app: FastAPI):
     mcp_client.ALL_TOOLS.extend(tools)
 
     # ── 4 & 5. LangGraph store + checkpointer + graph ─────────────────────────
-    async with AsyncPostgresStore.from_conn_string(DB_URI) as store:
-        async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
+    # Import DB_URI here — after init_pool() has resolved it from the environment
+    import fasapi.db.connection as _db_conn
+    _db_uri = _db_conn.DB_URI
+
+    async with AsyncPostgresStore.from_conn_string(_db_uri) as store:
+        async with AsyncPostgresSaver.from_conn_string(_db_uri) as checkpointer:
             await store.setup()
             await checkpointer.setup()
 
@@ -76,6 +81,7 @@ async def lifespan(app: FastAPI):
 
     # ── Cleanup ───────────────────────────────────────────────────────────────
     await close_pool()
+
 
 
 app = FastAPI(
