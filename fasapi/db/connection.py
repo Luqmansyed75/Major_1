@@ -42,6 +42,15 @@ async def init_pool() -> AsyncConnectionPool:
     """Create and open the connection pool. Called once at startup."""
     global _pool, DB_URI
     DB_URI = get_db_uri()
+
+    # ── Debug: print to Render logs so we can see what's happening ─────────
+    if "localhost" in DB_URI or "127.0.0.1" in DB_URI:
+        print(f"⚠️  WARNING: DATABASE_URL is pointing to localhost! "
+              f"Env var DATABASE_URL = {os.getenv('DATABASE_URL', '*** NOT SET ***')}")
+    else:
+        # Mask the password for security
+        print(f"✅ Connecting to cloud database: {DB_URI[:40]}...")
+
     _pool = AsyncConnectionPool(conninfo=DB_URI, open=False)
     await _pool.open()
     return _pool
