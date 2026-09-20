@@ -21,7 +21,7 @@ import client.mcp_client as mcp_client
 from agent.graph import build_graph
 
 # DB pool + table init
-from fasapi.db.connection import init_pool, close_pool
+from fasapi.db.connection import init_pool, close_pool, DB_URI
 from fasapi.db.init_tables import init_tables
 
 # Routers
@@ -32,7 +32,7 @@ from fasapi.routes.thread_route import router as thread_router
 from langgraph.store.postgres.aio import AsyncPostgresStore
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-DB_URI = "postgresql://postgres:postgres@localhost:5442/postgres?sslmode=disable"
+
 
 
 @asynccontextmanager

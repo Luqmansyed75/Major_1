@@ -15,10 +15,17 @@ from psycopg_pool import AsyncConnectionPool
 # Populated once during app lifespan startup (see app.py)
 _pool: AsyncConnectionPool | None = None
 
-DB_URI: str = os.getenv(
+_raw_db_uri: str = os.getenv(
     "DATABASE_URL",
     "postgresql://postgres:postgres@localhost:5442/postgres?sslmode=disable",
 )
+
+# Cloud providers like Render, Supabase, Neon may provide 'postgres://' instead of 'postgresql://'
+if _raw_db_uri.startswith("postgres://"):
+    DB_URI: str = _raw_db_uri.replace("postgres://", "postgresql://", 1)
+else:
+    DB_URI: str = _raw_db_uri
+
 
 
 async def init_pool() -> AsyncConnectionPool:

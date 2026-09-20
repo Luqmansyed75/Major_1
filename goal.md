@@ -2,3 +2,4 @@
 2.citation validation (see later)
 3.backend and frontend
 4.longterm and shortterm memory
+(supabase db password : Syedluqman@123)

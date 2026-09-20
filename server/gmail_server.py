@@ -37,13 +37,28 @@ def get_gmail_service():
     from googleapiclient.discovery import build
 
     creds = None
-    if os.path.exists(TOKEN_FILE):
+    # 1. Check if token JSON was passed via environment variable (ideal for cloud like Render)
+    token_json_str = os.getenv("GMAIL_TOKEN_JSON")
+    if token_json_str:
+        try:
+            creds = Credentials.from_authorized_user_info(json.loads(token_json_str), SCOPES)
+        except Exception as e:
+            logger.warning(f"Could not load credentials from GMAIL_TOKEN_JSON: {e}")
+
+    # 2. Check if local token file exists
+    if not creds and os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
 
+    # 3. Refresh or authenticate
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            if not os.path.exists(CREDENTIALS_FILE):
+                raise RuntimeError(
+                    f"Gmail token/credentials not found! On Render, please add GMAIL_TOKEN_JSON as an Environment Variable "
+                    f"(with the content of your local token.json) or add token.json as a Secret File."
+                )
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
             creds = flow.run_local_server(port=0)
             with open(TOKEN_FILE, "w") as token:
