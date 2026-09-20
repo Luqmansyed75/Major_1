@@ -8,9 +8,7 @@ load_dotenv()  # Must be first — loads env vars before any LangChain import
 # psycopg async requires SelectorEventLoop on Windows
 # (default ProactorEventLoop is incompatible with psycopg)
 if sys.platform == "win32":
-    asyncio.set_event_loop_policy(
-        asyncio.DefaultEventLoopPolicy()
-    )
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
     loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
     asyncio.set_event_loop(loop)
 
@@ -21,7 +19,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from client.mcp_client import load_all_tools_async
 import client.mcp_client as mcp_client
 from agent.graph import build_graph
-from fasapi.routes.chat_route import router
+
+# DB pool + table init
+from fasapi.db.connection import init_pool, close_pool
+from fasapi.db.init_tables import init_tables
+
+# Routers
+from fasapi.routes.chat_route import router as chat_router
+from fasapi.routes.auth_route import router as auth_router
+from fasapi.routes.thread_route import router as thread_router
+
 from langgraph.store.postgres.aio import AsyncPostgresStore
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
@@ -30,53 +37,68 @@ DB_URI = "postgresql://postgres:postgres@localhost:5442/postgres?sslmode=disable
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load MCP tools and build the LangGraph once at startup."""
+    """
+    Startup order:
+      1. Init shared async DB pool (for auth / thread routes)
+      2. Create users + user_threads tables if they don't exist
+      3. Load MCP tools
+      4. Open LangGraph AsyncPostgresStore + AsyncPostgresSaver
+      5. Build + compile the graph
+    """
+    # ── 1. DB pool ────────────────────────────────────────────────────────────
+    pool = await init_pool()
+    app.state.pool = pool
+
+    # ── 2. App tables ─────────────────────────────────────────────────────────
+    await init_tables(pool)
+
+    # ── 3. MCP tools ──────────────────────────────────────────────────────────
     print("Loading MCP tools...")
     tools = await load_all_tools_async()
-
-    # Populate the shared ALL_TOOLS list so agent_node picks them up lazily
     mcp_client.ALL_TOOLS.extend(tools)
 
+    # ── 4 & 5. LangGraph store + checkpointer + graph ─────────────────────────
     async with AsyncPostgresStore.from_conn_string(DB_URI) as store:
         async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
-
-            # Create required PostgreSQL tables
             await store.setup()
             await checkpointer.setup()
 
-            # Build and compile the graph
-            # NOTE: checkpointer must be passed BEFORE graph is compiled
             graph = build_graph(
                 tools=tools,
                 store=store,
                 checkpointer=checkpointer,
             )
-
-            # Store graph on app.state so routes access it via request.app.state.graph
             app.state.graph = graph
 
             print(f"Graph ready with {len(tools)} tools.")
-            yield  # ← app serves requests HERE; DB connections stay open
+            yield  # ← app serves requests HERE; all connections stay open
             print("Shutting down...")
+
+    # ── Cleanup ───────────────────────────────────────────────────────────────
+    await close_pool()
 
 
 app = FastAPI(
     title="Major1 Agent API",
     description=(
         "LangGraph-powered conversational agent with Human-in-the-Loop (HITL) "
-        "support.\n\n"
-        "## Workflow\n"
-        "1. **POST /chat/ask** — send a question, get an answer or a HITL prompt.\n"
-        "2. **POST /chat/resume** — approve or reject the HITL action and get "
-        "the final answer.\n\n"
-        "Use the `thread_id` returned by `/ask` to keep messages in the same "
-        "conversation session."
+        "support and JWT user authentication.\n\n"
+        "## Auth Flow\n"
+        "1. **POST /auth/register** — create an account, receive a Bearer token.\n"
+        "2. **POST /auth/login** — exchange credentials for a Bearer token.\n"
+        "3. Click **Authorize** (🔒) in Swagger and paste the token.\n\n"
+        "## Conversation Flow\n"
+        "1. **POST /threads** — create a thread, get back a `thread_id`.\n"
+        "2. **POST /chat/ask** — send a question with that `thread_id`.\n"
+        "3. **POST /chat/resume** — approve / reject a HITL action.\n"
+        "4. **GET /threads** — list all your past conversations.\n"
+        "5. **DELETE /threads/{thread_id}** — remove a conversation."
     ),
     version="1.0.0",
     lifespan=lifespan,
 )
 
-# Allow the local UI / Swagger UI to call the API without CORS errors
+# CORS — allow Swagger UI and local frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -84,4 +106,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router, prefix="/chat", tags=["Chat"])
+# Routers
+app.include_router(auth_router,   prefix="/auth",    tags=["Auth"])
+app.include_router(thread_router, prefix="/threads", tags=["Threads"])
+app.include_router(chat_router,   prefix="/chat",    tags=["Chat"])

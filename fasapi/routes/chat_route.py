@@ -1,3 +1,12 @@
+"""
+fasapi/routes/chat_route.py
+----------------------------
+Chat endpoints:
+
+    POST /chat/ask             — send a message to the agent
+    POST /chat/resume          — approve / reject a HITL action
+    GET  /chat/history/{thread_id} — load past messages from the checkpointer
+"""
 import uuid
 from fastapi import APIRouter, Request
 from langchain_core.messages import HumanMessage
@@ -40,8 +49,6 @@ async def _resolve(graph, result, config: dict, thread_id: str) -> ChatResponse:
 
 # ---------------------------------------------------------------------------
 # POST /chat/ask
-# User sends a question; thread_id and user_id are optional — the server
-# will generate a new UUID thread_id when none is supplied.
 # ---------------------------------------------------------------------------
 @router.post(
     "/ask",
@@ -57,7 +64,6 @@ async def _resolve(graph, result, config: dict, thread_id: str) -> ChatResponse:
 async def chat_endpoint(request: Request, payload: ChatRequest):
     graph = request.app.state.graph
 
-    # Use the thread_id from the frontend, or generate a fresh one
     thread_id = payload.thread_id or str(uuid.uuid4())
     user_id   = payload.user_id   or "anonymous"
 
@@ -66,8 +72,8 @@ async def chat_endpoint(request: Request, payload: ChatRequest):
             "thread_id": thread_id,
             "user_id":   user_id,
         },
-        "run_name": "live-rag-eval-agent",   # Trace name shown in LangSmith UI
-        "metadata": {                         # Visible as key-value in LangSmith
+        "run_name": "live-rag-eval-agent",
+        "metadata": {
             "project": "Live_rag_eval",
             "env":     "development",
         },
@@ -83,7 +89,6 @@ async def chat_endpoint(request: Request, payload: ChatRequest):
 
 # ---------------------------------------------------------------------------
 # POST /chat/resume
-# User approves or rejects a HITL action. Resumes the paused thread.
 # ---------------------------------------------------------------------------
 @router.post(
     "/resume",
@@ -114,3 +119,29 @@ async def resume_endpoint(request: Request, payload: ResumeRequest):
     )
 
     return await _resolve(graph, result, config, payload.thread_id)
+
+
+# ---------------------------------------------------------------------------
+# GET /chat/history/{thread_id}
+# Reads saved messages from the LangGraph checkpointer for a given thread.
+# ---------------------------------------------------------------------------
+@router.get(
+    "/history/{thread_id}",
+    summary="Load conversation history",
+    description=(
+        "Reads the LangGraph checkpointer state for the given `thread_id` and "
+        "returns the full message history as a list of {role, content} objects."
+    ),
+)
+async def load_conversation(thread_id: str, request: Request):
+    graph = request.app.state.graph
+    config = {"configurable": {"thread_id": thread_id}}
+    state = await graph.aget_state(config)
+    messages = state.values.get("messages", [])
+    return [
+        {
+            "role": "user" if isinstance(m, HumanMessage) else "assistant",
+            "content": m.content,
+        }
+        for m in messages
+    ]
