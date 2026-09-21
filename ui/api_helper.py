@@ -1,6 +1,9 @@
-from dotenv import load_dotenv
-load_dotenv()
 import os
+from typing import Any, Dict, List, Optional
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Try environment variable first, then Streamlit Cloud secrets
 API_BASE_URL = os.getenv("API_BASE_URL")
