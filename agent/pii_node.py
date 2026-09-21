@@ -9,7 +9,7 @@ from config.logger_config import logger
 # ---------------------------------------------------------------------------
 PII_PATTERNS = [
     (r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", "[REDACTED_EMAIL]"),
-    (r"\+?[\d\s\-().]{7,15}\d",                           "[REDACTED_PHONE]"),
+    (r"(?<!\w)(\+?[\d]{1,4}[\s\-.()\d]{6,14}\d)(?![\w\-T])",  "[REDACTED_PHONE]"),
     (r"(?i)(ghp_|sk-|AIza|Bearer )[A-Za-z0-9\-_]{10,}",  "[REDACTED_API_KEY]"),
     (r"\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b",  "[REDACTED_CARD]"),
     (r"\b[A-Z]{5}[0-9]{4}[A-Z]\b",                        "[REDACTED_PAN]"),

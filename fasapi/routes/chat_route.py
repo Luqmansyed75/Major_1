@@ -9,7 +9,7 @@ Chat endpoints:
 """
 import uuid
 from fastapi import APIRouter, Request
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.types import Command
 
 from fasapi.schemas.chat_schema import (
@@ -138,10 +138,23 @@ async def load_conversation(thread_id: str, request: Request):
     config = {"configurable": {"thread_id": thread_id}}
     state = await graph.aget_state(config)
     messages = state.values.get("messages", [])
-    return [
-        {
-            "role": "user" if isinstance(m, HumanMessage) else "assistant",
-            "content": m.content,
-        }
-        for m in messages
-    ]
+    history = []
+    for m in messages:
+        if isinstance(m, HumanMessage):
+            # Always include user messages
+            history.append({"role": "user", "content": m.content})
+        elif isinstance(m, AIMessage):
+            # Only include AI messages that have actual text (not pure tool-call messages)
+            content = m.content
+            if isinstance(content, list):
+                # Extract text blocks from multimodal content
+                text = " ".join(
+                    block.get("text", "") for block in content
+                    if isinstance(block, dict) and block.get("type") == "text"
+                )
+            else:
+                text = content or ""
+            if text.strip():
+                history.append({"role": "assistant", "content": text.strip()})
+        # ToolMessage is intentionally skipped — it's raw API JSON, not chat output
+    return history
