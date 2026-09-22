@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background: radial-gradient(circle at 10% 20%, rgba(240, 249, 255, 0.8) 0%, rgba(248, 250, 252, 1) 90%);
+    min-height: 100vh;
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Markdown styling inside assistant response cards */
+.prose-assistant p {
+  margin-bottom: 0.75rem;
+  line-height: 1.65;
+}
+.prose-assistant p:last-child {
+  margin-bottom: 0;
+}
+.prose-assistant pre {
+  background-color: #0f172a;
+  color: #f8fafc;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  margin: 0.75rem 0;
+}
+.prose-assistant code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  background-color: #f1f5f9;
+  color: #0284c7;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  border: 1px solid #e2e8f0;
+}
+.prose-assistant pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  border: none;
+}
+.prose-assistant ul, .prose-assistant ol {
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.prose-assistant li {
+  margin-bottom: 0.25rem;
+}
+.prose-assistant h1, .prose-assistant h2, .prose-assistant h3, .prose-assistant h4 {
+  color: #0f172a;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}

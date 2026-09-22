@@ -8,10 +8,11 @@ Chat endpoints:
     GET  /chat/history/{thread_id} — load past messages from the checkpointer
 """
 import uuid
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.types import Command
 
+from fasapi.core.deps import get_current_user
 from fasapi.schemas.chat_schema import (
     ChatRequest, ChatResponse, ResumeRequest, HITLEvent,
 )
@@ -61,16 +62,19 @@ async def _resolve(graph, result, config: dict, thread_id: str) -> ChatResponse:
         "call for the same session."
     ),
 )
-async def chat_endpoint(request: Request, payload: ChatRequest):
+async def chat_endpoint(
+    request: Request,
+    payload: ChatRequest,
+    user_id: str = Depends(get_current_user),   # always from JWT — never anonymous
+):
     graph = request.app.state.graph
 
     thread_id = payload.thread_id or str(uuid.uuid4())
-    user_id   = payload.user_id   or "anonymous"
 
     config = {
         "configurable": {
             "thread_id": thread_id,
-            "user_id":   user_id,
+            "user_id":   user_id,        # verified JWT identity
         },
         "run_name": "live-rag-eval-agent",
         "metadata": {
@@ -99,12 +103,17 @@ async def chat_endpoint(request: Request, payload: ChatRequest):
         "when `status == 'pending'`) together with `approval` ('yes' or 'no')."
     ),
 )
-async def resume_endpoint(request: Request, payload: ResumeRequest):
+async def resume_endpoint(
+    request: Request,
+    payload: ResumeRequest,
+    user_id: str = Depends(get_current_user),
+):
     graph = request.app.state.graph
 
     config = {
         "configurable": {
             "thread_id": payload.thread_id,
+            "user_id":   user_id,
         },
         "run_name": "live-rag-eval-agent",
         "metadata": {
@@ -133,7 +142,11 @@ async def resume_endpoint(request: Request, payload: ResumeRequest):
         "returns the full message history as a list of {role, content} objects."
     ),
 )
-async def load_conversation(thread_id: str, request: Request):
+async def load_conversation(
+    thread_id: str,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
     graph = request.app.state.graph
     config = {"configurable": {"thread_id": thread_id}}
     state = await graph.aget_state(config)

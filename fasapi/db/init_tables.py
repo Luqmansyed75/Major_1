@@ -31,6 +31,19 @@ CREATE_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_user_threads_user_id ON user_threads(user_id);
 """
 
+# Stores per-user GitHub PAT and Gmail OAuth token JSON.
+# github_token  : GitHub Personal Access Token (plain text).
+# gmail_token_json : Full Gmail OAuth token JSON string (contains refresh_token).
+# Both are nullable — a NULL value means "not connected".
+CREATE_USER_CREDENTIALS = """
+CREATE TABLE IF NOT EXISTS user_credentials (
+    user_id          UUID        PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    github_token     TEXT,
+    gmail_token_json TEXT,
+    updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+"""
+
 
 async def init_tables(pool: AsyncConnectionPool) -> None:
     """Run CREATE TABLE IF NOT EXISTS for all app tables."""
@@ -38,4 +51,5 @@ async def init_tables(pool: AsyncConnectionPool) -> None:
         await conn.execute(CREATE_USERS)
         await conn.execute(CREATE_USER_THREADS)
         await conn.execute(CREATE_INDEX)
+        await conn.execute(CREATE_USER_CREDENTIALS)
     print("DB tables verified / created.")

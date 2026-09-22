@@ -14,30 +14,46 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 mcp = FastMCP("github-server")
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+# Fallback token from environment (used when no per-user token is provided)
+_ENV_GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 API = "https://api.github.com"
-HEADERS = {
-    "Accept": "application/vnd.github.v3+json",
-    "User-Agent": "LiveRag-MCP",
-    **({"Authorization": f"Bearer {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}),
-}
+
+
+def _get_headers(github_token: str = "") -> dict:
+    """
+    Build request headers for GitHub API.
+
+    Priority:
+      1. github_token argument (per-user token injected by the agent)
+      2. GITHUB_TOKEN environment variable (server-level fallback)
+      3. No auth (public API rate limit applies)
+    """
+    token = github_token.strip() or _ENV_GITHUB_TOKEN
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "LiveRag-MCP",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
 
 
 # ---------------------------------------------------------------------------
 # 2. Register GitHub Tools
 # ---------------------------------------------------------------------------
 @mcp.tool()
-def search_repositories(query: str, max_results: int = 5) -> str:
+def search_repositories(query: str, max_results: int = 5, github_token: str = "") -> str:
     """Search GitHub repositories by keyword, topic, or user.
 
     Args:
         query: Search query (e.g. 'langchain', 'user:Luqmansyed75', 'topic:mcp').
         max_results: Maximum repositories to return (default: 5).
+        github_token: Per-user GitHub Personal Access Token (injected by agent).
     """
     logger.info(f"search_repositories | query='{query}', max_results={max_results}")
     res = httpx.get(
         f"{API}/search/repositories",
-        headers=HEADERS,
+        headers=_get_headers(github_token),
         params={"q": query, "per_page": max_results},
         timeout=10.0,
     )
@@ -59,15 +75,20 @@ def search_repositories(query: str, max_results: int = 5) -> str:
 
 
 @mcp.tool()
-def get_repository(owner: str, repo: str) -> str:
+def get_repository(owner: str, repo: str, github_token: str = "") -> str:
     """Get detailed metadata of a specific repository.
 
     Args:
         owner: Repository owner or organization (e.g. 'Luqmansyed75').
         repo: Repository name (e.g. 'Major_1').
+        github_token: Per-user GitHub Personal Access Token (injected by agent).
     """
     logger.info(f"get_repository | owner='{owner}', repo='{repo}'")
-    res = httpx.get(f"{API}/repos/{owner}/{repo}", headers=HEADERS, timeout=10.0)
+    res = httpx.get(
+        f"{API}/repos/{owner}/{repo}",
+        headers=_get_headers(github_token),
+        timeout=10.0,
+    )
     res.raise_for_status()
     r = res.json()
     return json.dumps(
@@ -90,7 +111,7 @@ def get_repository(owner: str, repo: str) -> str:
 
 
 @mcp.tool()
-def list_issues(owner: str, repo: str, state: str = "open", max_results: int = 5) -> str:
+def list_issues(owner: str, repo: str, state: str = "open", max_results: int = 5, github_token: str = "") -> str:
     """List issues in a GitHub repository.
 
     Args:
@@ -98,11 +119,12 @@ def list_issues(owner: str, repo: str, state: str = "open", max_results: int = 5
         repo: Repository name (e.g. 'Major_1').
         state: Filter by state — 'open', 'closed', or 'all' (default: 'open').
         max_results: Maximum issues to return (default: 5).
+        github_token: Per-user GitHub Personal Access Token (injected by agent).
     """
     logger.info(f"list_issues | owner='{owner}', repo='{repo}', state='{state}', max_results={max_results}")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/issues",
-        headers=HEADERS,
+        headers=_get_headers(github_token),
         params={"state": state, "per_page": max_results},
         timeout=10.0,
     )
@@ -128,18 +150,19 @@ def list_issues(owner: str, repo: str, state: str = "open", max_results: int = 5
 
 
 @mcp.tool()
-def get_issue(owner: str, repo: str, issue_number: int) -> str:
+def get_issue(owner: str, repo: str, issue_number: int, github_token: str = "") -> str:
     """Get full body and details of a specific issue by number.
 
     Args:
         owner: Repository owner.
         repo: Repository name.
         issue_number: The issue number.
+        github_token: Per-user GitHub Personal Access Token (injected by agent).
     """
     logger.info(f"get_issue | owner='{owner}', repo='{repo}', issue_number={issue_number}")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/issues/{issue_number}",
-        headers=HEADERS,
+        headers=_get_headers(github_token),
         timeout=10.0,
     )
     res.raise_for_status()
@@ -162,7 +185,7 @@ def get_issue(owner: str, repo: str, issue_number: int) -> str:
 
 
 @mcp.tool()
-def list_pull_requests(owner: str, repo: str, state: str = "open", max_results: int = 5) -> str:
+def list_pull_requests(owner: str, repo: str, state: str = "open", max_results: int = 5, github_token: str = "") -> str:
     """List pull requests in a GitHub repository.
 
     Args:
@@ -170,11 +193,12 @@ def list_pull_requests(owner: str, repo: str, state: str = "open", max_results: 
         repo: Repository name.
         state: Filter by state — 'open', 'closed', or 'all' (default: 'open').
         max_results: Maximum pull requests to return (default: 5).
+        github_token: Per-user GitHub Personal Access Token (injected by agent).
     """
     logger.info(f"list_pull_requests | owner='{owner}', repo='{repo}', state='{state}', max_results={max_results}")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/pulls",
-        headers=HEADERS,
+        headers=_get_headers(github_token),
         params={"state": state, "per_page": max_results},
         timeout=10.0,
     )
@@ -200,7 +224,7 @@ def list_pull_requests(owner: str, repo: str, state: str = "open", max_results: 
 
 
 @mcp.tool()
-def get_file_content(owner: str, repo: str, path: str, ref: str = "main") -> str:
+def get_file_content(owner: str, repo: str, path: str, ref: str = "main", github_token: str = "") -> str:
     """Read and decode a file's content from a repository at a given branch.
 
     Args:
@@ -208,11 +232,12 @@ def get_file_content(owner: str, repo: str, path: str, ref: str = "main") -> str
         repo: Repository name.
         path: File path inside the repository (e.g. 'README.md').
         ref: Branch, tag, or commit SHA (default: 'main').
+        github_token: Per-user GitHub Personal Access Token (injected by agent).
     """
     logger.info(f"get_file_content | owner='{owner}', repo='{repo}', path='{path}', ref='{ref}'")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/contents/{path}",
-        headers=HEADERS,
+        headers=_get_headers(github_token),
         params={"ref": ref},
         timeout=10.0,
     )
@@ -234,18 +259,19 @@ def get_file_content(owner: str, repo: str, path: str, ref: str = "main") -> str
 
 
 @mcp.tool()
-def list_commits(owner: str, repo: str, max_results: int = 5) -> str:
+def list_commits(owner: str, repo: str, max_results: int = 5, github_token: str = "") -> str:
     """List recent commits in a repository with author, message, and date.
 
     Args:
         owner: Repository owner.
         repo: Repository name.
         max_results: Maximum commits to return (default: 5).
+        github_token: Per-user GitHub Personal Access Token (injected by agent).
     """
     logger.info(f"list_commits | owner='{owner}', repo='{repo}', max_results={max_results}")
     res = httpx.get(
         f"{API}/repos/{owner}/{repo}/commits",
-        headers=HEADERS,
+        headers=_get_headers(github_token),
         params={"per_page": max_results},
         timeout=10.0,
     )

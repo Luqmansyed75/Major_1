@@ -29,6 +29,7 @@ from fasapi.db.init_tables import init_tables
 from fasapi.routes.chat_route import router as chat_router
 from fasapi.routes.auth_route import router as auth_router
 from fasapi.routes.thread_route import router as thread_router
+from fasapi.routes.integrations_route import router as integrations_router
 
 from langgraph.store.postgres.aio import AsyncPostgresStore
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -113,6 +114,8 @@ app.add_middleware(
 )
 
 # Routers
-app.include_router(auth_router,   prefix="/auth",    tags=["Auth"])
-app.include_router(thread_router, prefix="/threads", tags=["Threads"])
-app.include_router(chat_router,   prefix="/chat",    tags=["Chat"])
+app.include_router(auth_router,         prefix="/auth",         tags=["Auth"])
+app.include_router(thread_router,       prefix="/threads",      tags=["Threads"])
+app.include_router(chat_router,         prefix="/chat",         tags=["Chat"])
+app.include_router(integrations_router, prefix="/integrations", tags=["Integrations"])
+

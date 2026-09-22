@@ -17,47 +17,71 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 mcp = FastMCP("gmail-server")
 
-# OAuth Configuration
+# OAuth scopes required for Gmail read + send
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.send",
 ]
+
+# Fallback paths for server-level / environment credentials
 CREDENTIALS_FILE = os.getenv("GMAIL_CREDENTIALS_PATH", "credentials.json")
-TOKEN_FILE = os.getenv("GMAIL_TOKEN_PATH", "token.json")
+TOKEN_FILE       = os.getenv("GMAIL_TOKEN_PATH", "token.json")
 
 
 # ---------------------------------------------------------------------------
 # 2. Gmail Authentication & Service Helper
 # ---------------------------------------------------------------------------
-def get_gmail_service():
-    """Initializes and returns an authenticated Gmail API service."""
+def get_gmail_service(gmail_token_json: str = ""):
+    """
+    Return an authenticated Gmail API service object.
+
+    Credential resolution priority:
+      1. gmail_token_json argument  — per-user token injected by the agent (from DB)
+      2. GMAIL_TOKEN_JSON env var   — server-level JSON string (Render secret)
+      3. token.json file            — local development file
+      4. InstalledAppFlow           — interactive OAuth (local dev only)
+    """
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
     from googleapiclient.discovery import build
 
     creds = None
-    # 1. Check if token JSON was passed via environment variable (ideal for cloud like Render)
-    token_json_str = os.getenv("GMAIL_TOKEN_JSON")
-    if token_json_str:
-        try:
-            creds = Credentials.from_authorized_user_info(json.loads(token_json_str), SCOPES)
-        except Exception as e:
-            logger.warning(f"Could not load credentials from GMAIL_TOKEN_JSON: {e}")
 
-    # 2. Check if local token file exists
+    # 1. Per-user token passed directly from the agent (highest priority)
+    if gmail_token_json and gmail_token_json.strip():
+        try:
+            creds = Credentials.from_authorized_user_info(
+                json.loads(gmail_token_json), SCOPES
+            )
+        except Exception as e:
+            logger.warning(f"get_gmail_service | could not load per-user token: {e}")
+
+    # 2. Server-level env var (Render secret or local .env)
+    if not creds:
+        token_json_str = os.getenv("GMAIL_TOKEN_JSON")
+        if token_json_str:
+            try:
+                creds = Credentials.from_authorized_user_info(
+                    json.loads(token_json_str), SCOPES
+                )
+            except Exception as e:
+                logger.warning(f"get_gmail_service | could not load GMAIL_TOKEN_JSON: {e}")
+
+    # 3. Local token.json file
     if not creds and os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
 
-    # 3. Refresh or authenticate
+    # 4. Refresh expired credentials or run interactive OAuth flow
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             if not os.path.exists(CREDENTIALS_FILE):
                 raise RuntimeError(
-                    f"Gmail token/credentials not found! On Render, please add GMAIL_TOKEN_JSON as an Environment Variable "
-                    f"(with the content of your local token.json) or add token.json as a Secret File."
+                    "Gmail credentials not found. "
+                    "On Render: add GMAIL_TOKEN_JSON as an env var. "
+                    "Locally: run auth_gmail.py first to generate token.json."
                 )
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
             creds = flow.run_local_server(port=0)
@@ -90,22 +114,23 @@ def extract_email_body(payload: Dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 3. Tools
+# 3. Tools — each accepts an optional gmail_token_json injected by the agent
 # ---------------------------------------------------------------------------
 @mcp.tool()
-def search_emails(query: str, max_results: int = 5) -> str:
+def search_emails(query: str, max_results: int = 5, gmail_token_json: str = "") -> str:
     """Searches emails in the Gmail inbox matching a search query.
 
     Args:
         query: Gmail search query syntax (e.g. 'from:boss', 'subject:meeting').
         max_results: Maximum number of emails to retrieve (default: 5).
+        gmail_token_json: Per-user Gmail OAuth token JSON (injected by agent).
 
     Returns:
         JSON string containing the list of matching emails with headers and snippets.
     """
     logger.info(f"search_emails | query='{query}', max_results={max_results}")
     try:
-        service = get_gmail_service()
+        service = get_gmail_service(gmail_token_json)
         results = service.users().messages().list(
             userId="me", q=query, maxResults=max_results
         ).execute()
@@ -133,18 +158,19 @@ def search_emails(query: str, max_results: int = 5) -> str:
 
 
 @mcp.tool()
-def read_email(message_id: str) -> str:
+def read_email(message_id: str, gmail_token_json: str = "") -> str:
     """Retrieves the full content of a specific email by its message ID.
 
     Args:
         message_id: The unique identifier of the email message.
+        gmail_token_json: Per-user Gmail OAuth token JSON (injected by agent).
 
     Returns:
         JSON string containing the full email headers, snippet, and decoded body.
     """
     logger.info(f"read_email | message_id='{message_id}'")
     try:
-        service = get_gmail_service()
+        service = get_gmail_service(gmail_token_json)
         msg = service.users().messages().get(userId="me", id=message_id, format="full").execute()
         headers = {h["name"].lower(): h["value"] for h in msg.get("payload", {}).get("headers", [])}
         body_text = extract_email_body(msg.get("payload", {}))
@@ -166,34 +192,36 @@ def read_email(message_id: str) -> str:
 
 
 @mcp.tool()
-def list_unread_emails(max_results: int = 5) -> str:
+def list_unread_emails(max_results: int = 5, gmail_token_json: str = "") -> str:
     """Lists recent unread emails from the inbox.
 
     Args:
         max_results: Maximum number of unread emails to return (default: 5).
+        gmail_token_json: Per-user Gmail OAuth token JSON (injected by agent).
 
     Returns:
         JSON string containing unread emails.
     """
     logger.info(f"list_unread_emails | max_results={max_results}")
-    return search_emails(query="is:unread", max_results=max_results)
+    return search_emails(query="is:unread", max_results=max_results, gmail_token_json=gmail_token_json)
 
 
 @mcp.tool()
-def send_email(to: str, subject: str, body: str) -> str:
+def send_email(to: str, subject: str, body: str, gmail_token_json: str = "") -> str:
     """Sends an email to a specified recipient via Gmail.
 
     Args:
         to: Email address of the recipient.
         subject: Subject line of the email.
         body: Plaintext body content of the email.
+        gmail_token_json: Per-user Gmail OAuth token JSON (injected by agent).
 
     Returns:
         JSON string confirming the sent email or an error message.
     """
     logger.info(f"send_email | to='{to}', subject='{subject}'")
     try:
-        service = get_gmail_service()
+        service = get_gmail_service(gmail_token_json)
         message = MIMEText(body)
         message["to"] = to
         message["subject"] = subject
