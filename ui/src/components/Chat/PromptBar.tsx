@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUp, Sparkles, CornerDownLeft } from 'lucide-react';
+import { ArrowUp, Sparkles, CornerDownLeft, Paperclip, FileText, X } from 'lucide-react';
 
 interface PromptBarProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, file?: File | null) => void;
   disabled: boolean;
 }
 
@@ -14,7 +14,9 @@ const SUGGESTIONS = [
 
 export const PromptBar: React.FC<PromptBarProps> = ({ onSend, disabled }) => {
   const [input, setInput] = useState('');
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -24,9 +26,13 @@ export const PromptBar: React.FC<PromptBarProps> = ({ onSend, disabled }) => {
   }, [input]);
 
   const handleSend = () => {
-    if (!input.trim() || disabled) return;
-    onSend(input.trim());
+    if ((!input.trim() && !attachedFile) || disabled) return;
+    onSend(input.trim(), attachedFile);
     setInput('');
+    setAttachedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -36,6 +42,19 @@ export const PromptBar: React.FC<PromptBarProps> = ({ onSend, disabled }) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setAttachedFile(e.target.files[0]);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setAttachedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -61,8 +80,46 @@ export const PromptBar: React.FC<PromptBarProps> = ({ onSend, disabled }) => {
       </div>
 
       {/* Floating Prompt Bar */}
-      <div className="relative bg-white/95 backdrop-blur-xl border border-brand-200/90 rounded-2xl shadow-stitch-frosted p-2 transition-all focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-400/20">
+      <div className="relative bg-white/95 backdrop-blur-xl border border-brand-200/90 rounded-2xl shadow-stitch-frosted p-2.5 transition-all focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-400/20">
+        {/* Attached File Preview Badge */}
+        {attachedFile && (
+          <div className="flex items-center gap-2 px-3 py-1.5 mb-2 rounded-xl bg-brand-50 border border-brand-200/80 text-brand-900 text-xs w-fit max-w-full animate-fadeIn">
+            <FileText className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+            <span className="truncate font-medium max-w-[220px] sm:max-w-xs">{attachedFile.name}</span>
+            <span className="text-[10px] text-brand-500 font-mono">
+              ({(attachedFile.size / 1024).toFixed(1)} KB)
+            </span>
+            <button
+              type="button"
+              onClick={handleRemoveFile}
+              className="p-0.5 rounded-full hover:bg-brand-200/60 text-brand-700 transition ml-1"
+              title="Remove file"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
         <div className="flex items-end gap-2">
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {/* Paperclip Button */}
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 rounded-xl text-slate-500 hover:text-brand-600 hover:bg-brand-50 active:bg-brand-100 transition-colors disabled:opacity-40 shrink-0"
+            title="Attach a file from your computer"
+          >
+            <Paperclip className="w-4 h-4 stroke-[2.2]" />
+          </button>
+
           <textarea
             ref={textareaRef}
             rows={1}
@@ -73,14 +130,16 @@ export const PromptBar: React.FC<PromptBarProps> = ({ onSend, disabled }) => {
             placeholder={
               disabled
                 ? 'Action pending approval...'
-                : 'Ask anything, query GitHub repos, or draft an email...'
+                : attachedFile
+                ? 'Add an instruction for this file, or press Enter to analyze it...'
+                : 'Ask anything, query GitHub repos, or attach a file...'
             }
-            className="flex-1 max-h-36 bg-transparent resize-none px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none leading-relaxed disabled:opacity-60"
+            className="flex-1 max-h-36 bg-transparent resize-none px-2 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none leading-relaxed disabled:opacity-60"
           />
 
           <button
             type="button"
-            disabled={!input.trim() || disabled}
+            disabled={(!input.trim() && !attachedFile) || disabled}
             onClick={handleSend}
             className="p-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white shadow-sm transition-all duration-150 disabled:opacity-40 disabled:hover:bg-brand-600 shrink-0"
             title="Send prompt (Enter)"
@@ -90,7 +149,7 @@ export const PromptBar: React.FC<PromptBarProps> = ({ onSend, disabled }) => {
         </div>
 
         <div className="flex items-center justify-between px-3 pt-1 text-[10px] text-slate-400 font-mono">
-          <span>Groq LLaMA-3 • LangGraph State Machine</span>
+          <span>Groq LLaMA-3 • File Context Enabled</span>
           <span className="flex items-center gap-1">
             <CornerDownLeft className="w-2.5 h-2.5" /> Return to send
           </span>
@@ -99,3 +158,4 @@ export const PromptBar: React.FC<PromptBarProps> = ({ onSend, disabled }) => {
     </div>
   );
 };
+

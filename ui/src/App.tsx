@@ -119,16 +119,22 @@ export default function App() {
   };
 
   // ── Chat & Prompt Handlers ─────────────────────────────────────────────
-  const handleSendPrompt = async (prompt: string) => {
+  const handleSendPrompt = async (prompt: string, file?: File | null) => {
     if (!token) return;
 
     // Append user message immediately
-    const userMsg: Message = { role: 'user', content: prompt };
+    let displayContent = prompt;
+    if (file) {
+      const fileBadge = `📎 [Attached: ${file.name} (${(file.size / 1024).toFixed(1)} KB)]`;
+      displayContent = prompt ? `${fileBadge}\n\n${prompt}` : fileBadge;
+    }
+
+    const userMsg: Message = { role: 'user', content: displayContent };
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
 
     try {
-      const res = await api.askQuestion(prompt, activeThreadId, token);
+      const res = await api.askQuestion(prompt, activeThreadId, token, file);
       if (res.thread_id && res.thread_id !== activeThreadId) {
         setActiveThreadId(String(res.thread_id));
         fetchThreads(token);

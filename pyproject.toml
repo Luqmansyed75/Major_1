@@ -27,6 +27,7 @@ dependencies = [
     "streamlit>=1.63.0",
     "uvicorn[standard]>=0.52.0",
     "bcrypt>=5.0.0",
+    "pypdf>=6.19.0",
 ]
 
 [project.scripts]

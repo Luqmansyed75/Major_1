@@ -103,15 +103,40 @@ export const api = {
   },
 
   // Chat & HITL
-  async askQuestion(question: string, threadId: string | null, token: string): Promise<AskResponse> {
+  async askQuestion(
+    question: string,
+    threadId: string | null,
+    token: string,
+    file?: File | null
+  ): Promise<AskResponse> {
     try {
-      const res = await fetch(`${API_BASE_URL}/chat/ask`, {
-        method: 'POST',
-        headers: getHeaders(token),
-        body: JSON.stringify({
+      let headers: Record<string, string> = {};
+      let body: BodyInit;
+
+      if (file) {
+        const formData = new FormData();
+        formData.append('question', question || '');
+        if (threadId) {
+          formData.append('thread_id', threadId);
+        }
+        formData.append('file', file);
+        body = formData;
+        // Do NOT set Content-Type header with FormData — fetch will automatically set multipart boundary!
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      } else {
+        headers = getHeaders(token);
+        body = JSON.stringify({
           question,
           ...(threadId ? { thread_id: threadId } : {}),
-        }),
+        });
+      }
+
+      const res = await fetch(`${API_BASE_URL}/chat/ask`, {
+        method: 'POST',
+        headers,
+        body,
       });
       const data = await res.json();
       if (!res.ok) {
